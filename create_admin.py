@@ -8,6 +8,12 @@ Usage:
 import asyncio
 import sys
 
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 # Add app to path
 sys.path.insert(0, ".")
 

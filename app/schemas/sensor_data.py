@@ -48,12 +48,16 @@ class SensorDataIoTCreate(BaseModel):
     humidity: float = Field(..., ge=0, le=100, description="Kelembaban (%)")
     ammonia: float = Field(..., ge=0, description="Amonia (ppm)")
 
+    kandang_id: Optional[uuid.UUID] = Field(default=None, description="ID kandang spesifik (opsional)")
+    kandang_kode: Optional[str] = Field(default=None, description="Kode kandang spesifik misal 'KDG-01' (opsional)")
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "temperature": 28.5,
                 "humidity": 75.0,
                 "ammonia": 3.5,
+                "kandang_kode": "KDG-01",
             }
         }
     )

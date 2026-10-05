@@ -45,6 +45,20 @@ async def create_sensor_data_iot(
 
     logger = logging.getLogger(__name__)
 
+    # Multi-kandang IoT support: override default kandang if IoT specifies kandang_id or kandang_kode
+    if data.kandang_id:
+        from sqlalchemy import select as sa_select
+        k_res = await db.execute(sa_select(Kandang).where(Kandang.id == data.kandang_id, Kandang.is_active == True))
+        custom_k = k_res.scalar_one_or_none()
+        if custom_k:
+            kandang = custom_k
+    elif data.kandang_kode:
+        from sqlalchemy import select as sa_select
+        k_res = await db.execute(sa_select(Kandang).where(Kandang.kode == data.kandang_kode, Kandang.is_active == True))
+        custom_k = k_res.scalar_one_or_none()
+        if custom_k:
+            kandang = custom_k
+
     sensor_service = SensorDataService(db)
     hari_ke = await sensor_service.get_hari_ke(kandang.id, kandang.tanggal_mulai_siklus)
 

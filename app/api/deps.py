@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional, Dict, Any
 
-from fastapi import Depends, HTTPException, status, Request, Header
+from fastapi import Depends, HTTPException, status, Request, Header, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,9 +108,25 @@ async def get_iot_auth(
     return x_api_key
 
 
-async def get_single_kandang(db: AsyncSession = Depends(get_db)) -> Kandang:
+async def get_single_kandang(
+    kandang_id: Optional[uuid.UUID] = Query(default=None, description="ID kandang (opsional, jika kosong mengambil kandang aktif pertama)"),
+    db: AsyncSession = Depends(get_db),
+) -> Kandang:
+    """Ambil kandang berdasarkan parameter query ?kandang_id=..., atau fallback ke kandang aktif pertama."""
+    if kandang_id:
+        result = await db.execute(
+            select(Kandang).where(Kandang.id == kandang_id, Kandang.is_active == True)
+        )
+        kandang = result.scalar_one_or_none()
+        if not kandang:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Kandang dengan ID '{kandang_id}' tidak ditemukan",
+            )
+        return kandang
+
     result = await db.execute(
-        select(Kandang).where(Kandang.is_active == True).limit(1)
+        select(Kandang).where(Kandang.is_active == True).order_by(Kandang.created_at.asc()).limit(1)
     )
     kandang = result.scalar_one_or_none()
     if not kandang:

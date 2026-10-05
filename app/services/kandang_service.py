@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload
 
 from app.models.kandang import Kandang
 from app.models.sensor_data import SensorData
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.kandang import KandangCreate, KandangUpdate, LatestSensorSnapshot
 
 
@@ -125,3 +125,39 @@ class KandangService:
         await self.db.flush()
         await self.db.refresh(kandang)
         return kandang
+    
+    async def get_all_by_user(
+        self, user_id: uuid.UUID, role: str, skip: int = 0, limit: int = 100
+    ) -> tuple[list[Kandang], int]:
+        """
+        Ambil semua kandang:
+        - Jika ADMIN: ambil seluruh kandang yang ada di sistem.
+        - Jika PEMILIK: ambil kandang miliknya sendiri.
+        - Jika PETERNAK: ambil kandang milik pemilik yang menaunginya.
+        """
+        query = select(Kandang).options(joinedload(Kandang.pemilik)).where(Kandang.is_active == True)
+
+        if role == UserRole.PEMILIK:
+            query = query.where(Kandang.pemilik_id == user_id)
+        elif role == UserRole.PETERNAK:
+            user_res = await self.db.execute(select(User).where(User.id == user_id))
+            user = user_res.scalar_one_or_none()
+            if user and user.pemilik_id:
+                query = query.where(Kandang.pemilik_id == user.pemilik_id)
+            else:
+                return [], 0
+
+        # Hitung total
+        count_query = select(func.count()).select_from(
+            select(Kandang.id).where(Kandang.is_active == True)
+            .where(Kandang.pemilik_id == user_id if role == UserRole.PEMILIK else True)
+            .subquery()
+        )
+        total_res = await self.db.execute(count_query)
+        total = total_res.scalar_one()
+
+        # Ambil data dengan pagination
+        query = query.order_by(Kandang.nama).offset(skip).limit(limit)
+        res = await self.db.execute(query)
+        kandangs = list(res.scalars().unique().all())
+        return kandangs, total

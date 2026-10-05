@@ -30,7 +30,7 @@ class KandangBase(BaseModel):
 class KandangCreate(KandangBase):
     """Schema for creating kandang."""
     
-    pemilik_id: uuid.UUID = Field(..., description="ID pemilik kandang")
+    pemilik_id: Optional[uuid.UUID] = Field(default=None, description="ID pemilik kandang (opsional bagi pemilik)")
 
 
 class KandangUpdate(BaseModel):
