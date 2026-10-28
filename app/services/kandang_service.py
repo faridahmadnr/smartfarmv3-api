@@ -136,25 +136,21 @@ class KandangService:
         - Jika PETERNAK: ambil kandang milik pemilik yang menaunginya.
         """
         query = select(Kandang).options(joinedload(Kandang.pemilik)).where(Kandang.is_active == True)
+        count_query = select(func.count(Kandang.id)).where(Kandang.is_active == True)
 
         if role == UserRole.PEMILIK:
             query = query.where(Kandang.pemilik_id == user_id)
+            count_query = count_query.where(Kandang.pemilik_id == user_id)
         elif role == UserRole.PETERNAK:
             user_res = await self.db.execute(select(User).where(User.id == user_id))
             user = user_res.scalar_one_or_none()
-            if user and user.pemilik_id:
-                query = query.where(Kandang.pemilik_id == user.pemilik_id)
-            else:
+            owner_id = user.pemilik_id if user else None
+            if not owner_id:
                 return [], 0
+            query = query.where(Kandang.pemilik_id == owner_id)
+            count_query = count_query.where(Kandang.pemilik_id == owner_id)
 
-        # Hitung total
-        count_query = select(func.count()).select_from(
-            select(Kandang.id).where(Kandang.is_active == True)
-            .where(Kandang.pemilik_id == user_id if role == UserRole.PEMILIK else True)
-            .subquery()
-        )
-        total_res = await self.db.execute(count_query)
-        total = total_res.scalar_one()
+        total = (await self.db.execute(count_query)).scalar_one()
 
         # Ambil data dengan pagination
         query = query.order_by(Kandang.nama).offset(skip).limit(limit)

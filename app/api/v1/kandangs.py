@@ -99,8 +99,24 @@ async def create_kandang(
 ):
     kandang_service = KandangService(db)
 
-    # Jika yang login Pemilik atau pemilik_id tidak diisi, otomatis set pemilik_id ke akunnya sendiri
-    if current_user.role == UserRole.PEMILIK or not kandang_data.pemilik_id:
+    if current_user.role == UserRole.ADMIN:
+        # Admin wajib menunjuk Owner; jika tidak, kandang akan tercatat milik admin
+        # dan tidak akan muncul di dashboard Owner mana pun.
+        if not kandang_data.pemilik_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="pemilik_id wajib diisi oleh admin",
+            )
+        owner = (await db.execute(
+            select(User).where(User.id == kandang_data.pemilik_id)
+        )).scalar_one_or_none()
+        if not owner or owner.role != UserRole.PEMILIK:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="pemilik_id harus merujuk ke akun Owner yang valid",
+            )
+    else:
+        # Pemilik membuat kandang untuk dirinya sendiri.
         kandang_data.pemilik_id = current_user.id
 
     # Cek apakah kode kandang sudah dipakai

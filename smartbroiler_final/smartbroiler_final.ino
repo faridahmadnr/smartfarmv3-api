@@ -28,7 +28,7 @@ char pass[] = "imdafanh";
 
 // 3. PENGATURAN ENDPOINT API LOKAL (Port 8000 FastAPI)
 // Mengarah langsung ke IP laptop Anda di jaringan hotspot yang sama
-String serverPath = "http://192.168.43.178:8000/api/v1/sensor-data/iot";
+String serverPath = "http://192.168.10.109:8000/api/v1/sensor-data/iot";
 
 void setup() {
   Serial.begin(115200);
@@ -103,7 +103,7 @@ void sendDataToServer(float temperature, float humidity, float amonia) {
 
     // Menyusun JSON Payload sesuai dengan Parameter Dokumentasi Backend
     String jsonPayload = "{";
-    jsonPayload += "\"kandang_id\":\"KDG-001\","; 
+    jsonPayload += "\"kandang_kode\":\"KDG-782149\",";
     jsonPayload += "\"temperature\":" + String(temperature, 1) + ",";
     jsonPayload += "\"humidity\":" + String(humidity, 1) + ",";
     jsonPayload += "\"ammonia\":" + String(amonia, 1);
