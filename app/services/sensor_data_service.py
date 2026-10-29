@@ -96,7 +96,7 @@ class SensorDataService:
         # Count total
         count_query = select(func.count()).select_from(query.subquery())
         total_result = await self.db.execute(count_query)
-        total = total_result.scalar()
+        total = total_result.scalar() or 0
         
         # Get paginated results
         query = query.order_by(desc(SensorData.timestamp))
@@ -265,3 +265,20 @@ class SensorDataService:
             }
             for d in data
         ]
+
+    async def get_all_for_export(
+        self,
+        kandang_id: uuid.UUID,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: int = 50000,
+    ) -> List[SensorData]:
+        """Get all sensor data records for export."""
+        query = select(SensorData).where(SensorData.kandang_id == kandang_id)
+        if start_time:
+            query = query.where(SensorData.timestamp >= start_time)
+        if end_time:
+            query = query.where(SensorData.timestamp <= end_time)
+        query = query.order_by(SensorData.timestamp.asc()).limit(limit)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())

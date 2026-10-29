@@ -1,3 +1,6 @@
+import io
+import csv
+from fastapi.responses import StreamingResponse
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -64,6 +67,70 @@ async def list_death_reports(
             per_page=per_page,
         ),
         message="Riwayat laporan kematian berhasil diambil",
+    )
+
+
+
+@router.get(
+    "/export/csv",
+    summary="Ekspor Laporan Kematian ke CSV",
+    description="Ekspor riwayat data laporan kematian ayam ke file CSV.",
+)
+async def export_death_reports_csv(
+    start_time: Optional[datetime] = Query(None, description="Filter awal"),
+    end_time: Optional[datetime] = Query(None, description="Filter akhir"),
+    current_user: User = Depends(get_current_user),
+    kandang: Kandang = Depends(get_single_kandang),
+    db: AsyncSession = Depends(get_db),
+):
+    service = DeathReportService(db)
+    items = await service.get_all_for_export(kandang.id, start_time, end_time)
+
+    output = io.StringIO()
+    output.write("\ufeff")
+    writer = csv.writer(output, delimiter=",")
+    writer.writerow([
+        "Waktu Kejadian",
+        "Jumlah Kematian (ekor)",
+        "Catatan / Penyebab",
+    ])
+
+    for item in items:
+        writer.writerow([
+            item.timestamp.strftime("%Y-%m-%d %H:%M:%S") if item.timestamp else "",
+            item.count,
+            item.notes or "",
+        ])
+
+    k_name = kandang.kode or kandang.nama or "kandang"
+    s_label = start_time.strftime("%Y%m%d_%H%M") if start_time else "awal"
+    e_label = end_time.strftime("%Y%m%d_%H%M") if end_time else "akhir"
+    filename = f"kematian_{k_name}_{s_label}_{e_label}.csv".replace(" ", "_")
+
+    try:
+        from app.services.activity_log_service import ActivityLogService
+        from app.models.activity_log import Platform
+        activity_service = ActivityLogService(db)
+        await activity_service.create(
+            user_id=current_user.id,
+            action="EXPORT_CSV",
+            resource="death_reports",
+            resource_id=kandang.id,
+            details={"kandang_nama": kandang.nama, "total_rows": len(items)},
+            platform=Platform.WEB,
+        )
+        await db.commit()
+    except Exception:
+        pass
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        },
     )
 
 

@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime, date
-from typing import Optional, List
+from typing import Optional, List, Dict, Tuple
 
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, asc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.daily_log import DailyLog
+from app.models.death_report import DeathReport
 from app.schemas.daily_log import DailyLogCreate
-
 
 
 class DailyLogService:
@@ -112,3 +112,45 @@ class DailyLogService:
             .limit(per_page)
         )
         return list(result.scalars().all()), total
+
+    async def get_all_for_export(
+        self,
+        kandang_id: uuid.UUID,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> Tuple[List[DailyLog], Dict[date, int]]:
+        filters = [DailyLog.kandang_id == kandang_id]
+        if start_date:
+            filters.append(DailyLog.date >= start_date)
+        if end_date:
+            filters.append(DailyLog.date <= end_date)
+
+        result = await self.db.execute(
+            select(DailyLog)
+            .where(*filters)
+            .order_by(asc(DailyLog.date))
+        )
+        logs = list(result.scalars().all())
+
+        death_filters = [DeathReport.kandang_id == kandang_id]
+        if start_date:
+            death_filters.append(func.date(DeathReport.timestamp) >= start_date)
+        if end_date:
+            death_filters.append(func.date(DeathReport.timestamp) <= end_date)
+
+        death_result = await self.db.execute(
+            select(
+                func.date(DeathReport.timestamp).label("death_date"),
+                func.sum(DeathReport.count).label("total_deaths"),
+            )
+            .where(*death_filters)
+            .group_by(func.date(DeathReport.timestamp))
+        )
+        death_map: Dict[date, int] = {}
+        for row in death_result.all():
+            d_date = row.death_date
+            if isinstance(d_date, str):
+                d_date = datetime.strptime(d_date, "%Y-%m-%d").date()
+            death_map[d_date] = int(row.total_deaths or 0)
+
+        return logs, death_map

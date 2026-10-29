@@ -17,30 +17,30 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
     # Startup
-    print("🚀 Starting SmartFarm API...")
+    print("[INFO] Starting SmartFarm API...")
     await create_tables()
-    print("✅ Database tables created/verified")
+    print("[INFO] Database tables created/verified")
     
     # Load ML models
     try:
         from app.ml.model_loader import load_models
         load_models()
     except Exception as e:
-        print(f"⚠️  ML models not loaded: {e}")
+        print(f"[WARN] ML models not loaded: {e}")
 
     # Start scheduler
     try:
         from app.services.scheduler_service import start_scheduler
         start_scheduler()
     except Exception as e:
-        print(f"⚠️  Scheduler not started: {e}")
+        print(f"[WARN] Scheduler not started: {e}")
 
     yield
 
     # Shutdown
     from app.services.scheduler_service import stop_scheduler
     stop_scheduler()
-    print("👋 Shutting down SmartFarm API...")
+    print("[INFO] Shutting down SmartFarm API...")
 
 
 # Create FastAPI application

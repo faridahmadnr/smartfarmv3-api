@@ -93,3 +93,18 @@ class DeathReportService:
             .limit(per_page)
         )
         return list(result.scalars().all()), total
+
+    async def get_all_for_export(
+        self,
+        kandang_id: uuid.UUID,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> List[DeathReport]:
+        query = select(DeathReport).where(DeathReport.kandang_id == kandang_id)
+        if start_time:
+            query = query.where(DeathReport.timestamp >= start_time)
+        if end_time:
+            query = query.where(DeathReport.timestamp <= end_time)
+        query = query.order_by(DeathReport.timestamp.asc())
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
