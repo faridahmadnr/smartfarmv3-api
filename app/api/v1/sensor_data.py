@@ -1,3 +1,6 @@
+import io
+import csv
+from fastapi.responses import StreamingResponse
 import uuid
 from typing import Optional
 from datetime import datetime, timedelta
@@ -651,3 +654,80 @@ async def get_sensor_stats(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tidak ada data sensor dalam periode yang diminta")
 
     return success_response(data=stats, message=f"Statistik {hours} jam terakhir")
+
+
+@router.get(
+    "/export/csv",
+    summary="Ekspor Data Sensor ke CSV",
+    description="Ekspor data sensor telemetri kandang ke file CSV dengan encoding UTF-8 BOM.",
+)
+async def export_sensor_data_csv(
+    start_time: Optional[datetime] = Query(None, description="Filter awal (ISO format)"),
+    end_time: Optional[datetime] = Query(None, description="Filter akhir (ISO format)"),
+    current_user: User = Depends(get_current_user),
+    kandang: Kandang = Depends(get_single_kandang),
+    db: AsyncSession = Depends(get_db),
+):
+    service = SensorDataService(db)
+    items = await service.get_all_for_export(kandang.id, start_time, end_time)
+
+    output = io.StringIO()
+    output.write("\ufeff")  # UTF-8 BOM
+    writer = csv.writer(output, delimiter=",")
+    writer.writerow([
+        "Waktu",
+        "Hari Ke",
+        "Suhu (C)",
+        "Kelembaban (%)",
+        "Amoniak (ppm)",
+        "Kematian",
+        "Populasi",
+        "Pakan",
+        "Minum",
+        "Bobot (g)",
+    ])
+
+    for item in items:
+        writer.writerow([
+            item.timestamp.strftime("%Y-%m-%d %H:%M:%S") if item.timestamp else "",
+            item.hari_ke if item.hari_ke is not None else "",
+            f"{item.suhu:.2f}" if item.suhu is not None else "",
+            f"{item.kelembaban:.2f}" if item.kelembaban is not None else "",
+            f"{item.amoniak:.2f}" if item.amoniak is not None else "",
+            item.death if item.death is not None else "",
+            item.populasi if item.populasi is not None else "",
+            item.pakan if item.pakan is not None else "",
+            item.minum if item.minum is not None else "",
+            item.bobot if item.bobot is not None else "",
+        ])
+
+    k_name = kandang.kode or kandang.nama or "kandang"
+    s_label = start_time.strftime("%Y%m%d_%H%M") if start_time else "awal"
+    e_label = end_time.strftime("%Y%m%d_%H%M") if end_time else "akhir"
+    filename = f"sensor_data_{k_name}_{s_label}_{e_label}.csv".replace(" ", "_")
+
+    try:
+        from app.services.activity_log_service import ActivityLogService
+        from app.models.activity_log import Platform
+        activity_service = ActivityLogService(db)
+        await activity_service.create(
+            user_id=current_user.id,
+            action="EXPORT_CSV",
+            resource="sensor_data",
+            resource_id=kandang.id,
+            details={"kandang_nama": kandang.nama, "total_rows": len(items)},
+            platform=Platform.WEB,
+        )
+        await db.commit()
+    except Exception:
+        pass
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        },
+    )
