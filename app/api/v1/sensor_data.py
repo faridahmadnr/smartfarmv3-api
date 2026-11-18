@@ -16,8 +16,9 @@ from app.schemas.sensor_data import (
     SensorDataResponse,
     SensorDataListResponse,
     SensorDataStats,
+    SensorDataIoTStatus,
 )
-from app.services.sensor_data_service import SensorDataService
+from app.services.sensor_data_service import SensorDataService, is_iot_online
 from app.api.deps import get_current_user, get_iot_auth, get_single_kandang, require_roles
 from app.models.user import UserRole
 
@@ -611,6 +612,31 @@ async def get_sensor_data(
             page_size=page_size,
         ),
         message="Data sensor berhasil diambil",
+    )
+
+
+@router.get(
+    "/iot/status",
+    response_model=BaseResponse[SensorDataIoTStatus],
+    summary="Get IoT Device Status",
+    description="Determine IoT status from the latest non-manual sensor reading.",
+)
+async def get_iot_status(
+    current_user: User = Depends(get_current_user),
+    kandang: Kandang = Depends(get_single_kandang),
+    db: AsyncSession = Depends(get_db),
+):
+    sensor_service = SensorDataService(db)
+    last_seen = await sensor_service.get_latest_iot_timestamp(kandang.id)
+    device_status = (
+        "no_data" if last_seen is None
+        else "online" if is_iot_online(last_seen)
+        else "offline"
+    )
+
+    return success_response(
+        data=SensorDataIoTStatus(status=device_status, last_seen=last_seen),
+        message="Status IoT berhasil diambil",
     )
 
 

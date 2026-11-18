@@ -11,7 +11,7 @@ Jobs:
      Admin saja: in-app + WA dengan detail pemilik & waktu terakhir data masuk
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -206,18 +206,22 @@ async def check_iot_offline():
     from app.models.kandang import Kandang
     from app.models.user import User, UserRole
     from app.models.notification import Notification, NotificationType
-    from app.models.sensor_data import SensorData
     from app.services.notification_service import NotificationService
+    from app.services.sensor_data_service import (
+        SensorDataService,
+        is_iot_online,
+        normalize_timestamp_utc,
+    )
     from app.services.fonnte_service import send_whatsapp
     from app.schemas.notification import NotificationCreate
     from sqlalchemy import select, func, text
     from datetime import timedelta
 
-    now               = datetime.utcnow()
-    offline_threshold = now - timedelta(minutes=35)
+    now                = datetime.now(timezone.utc)
     cooldown_threshold = now - timedelta(hours=1)
 
     async with AsyncSessionLocal() as db:
+        sensor_service = SensorDataService(db)
         # Advisory lock agar hanya satu proses (instance) yang menjalankan job ini
         lock_result = await db.execute(text("SELECT pg_try_advisory_lock(1002)"))
         if not lock_result.scalar():
@@ -240,18 +244,8 @@ async def check_iot_offline():
 
             for kandang in kandangs:
                 try:
-                    last_data_result = await db.execute(
-                        select(SensorData.timestamp)
-                        .where(SensorData.kandang_id == kandang.id)
-                        .order_by(SensorData.timestamp.desc())
-                        .limit(1)
-                    )
-                    last_ts = last_data_result.scalar_one_or_none()
-
-                    is_offline = (last_ts is None) or (
-                        last_ts.replace(tzinfo=None) < offline_threshold
-                    )
-                    if not is_offline:
+                    last_ts = await sensor_service.get_latest_iot_timestamp(kandang.id)
+                    if is_iot_online(last_ts, now):
                         continue
 
                     # Hitung waktu terakhir data masuk
@@ -260,7 +254,7 @@ async def check_iot_offline():
                         last_seen_wa    = "belum pernah ada data"
                     else:
                         minutes_ago = int(
-                            (now - last_ts.replace(tzinfo=None)).total_seconds() // 60
+                            (now - normalize_timestamp_utc(last_ts)).total_seconds() // 60
                         )
                         last_seen_inapp = f"{minutes_ago} menit lalu"
                         last_seen_wa    = f"{minutes_ago} menit yang lalu"

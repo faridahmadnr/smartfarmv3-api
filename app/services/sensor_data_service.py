@@ -2,7 +2,7 @@
 Sensor Data Service - Business logic for IoT sensor data management
 """
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy import select, func, and_, desc
@@ -15,6 +15,24 @@ from app.schemas.sensor_data import (
     SensorDataManualUpdate,
     SensorDataStats,
 )
+
+
+IOT_OFFLINE_THRESHOLD_MINUTES = 35
+
+
+def normalize_timestamp_utc(timestamp: datetime) -> datetime:
+    if timestamp.tzinfo is None:
+        return timestamp.replace(tzinfo=timezone.utc)
+    return timestamp.astimezone(timezone.utc)
+
+
+def is_iot_online(last_seen: Optional[datetime], now: Optional[datetime] = None) -> bool:
+    if last_seen is None:
+        return False
+
+    current_time = normalize_timestamp_utc(now or datetime.now(timezone.utc))
+    last_seen_utc = normalize_timestamp_utc(last_seen)
+    return current_time - last_seen_utc <= timedelta(minutes=IOT_OFFLINE_THRESHOLD_MINUTES)
 
 
 class SensorDataService:
@@ -120,6 +138,19 @@ class SensorDataService:
         )
         # Return in chronological order (oldest first)
         return list(reversed(result.scalars().all()))
+
+    async def get_latest_iot_timestamp(self, kandang_id: uuid.UUID) -> Optional[datetime]:
+        """Get the most recent IoT reading, excluding manually recorded data."""
+        result = await self.db.execute(
+            select(SensorData.timestamp)
+            .where(
+                SensorData.kandang_id == kandang_id,
+                SensorData.recorded_by.is_(None),
+            )
+            .order_by(desc(SensorData.timestamp))
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
     
     async def get_stats(
         self,

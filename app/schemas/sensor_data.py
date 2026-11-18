@@ -3,7 +3,7 @@ Sensor Data Schemas - Request and Response models for sensor data CRUD
 """
 import uuid
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -107,6 +107,11 @@ class SensorDataResponse(BaseModel):
     updated_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
+
+
+class SensorDataIoTStatus(BaseModel):
+    status: Literal["online", "offline", "no_data"]
+    last_seen: Optional[datetime] = None
 
 
 class SensorDataListResponse(BaseModel):
