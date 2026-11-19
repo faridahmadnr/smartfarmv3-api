@@ -33,17 +33,10 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket, user_id: str):
         await websocket.accept()
-        # Close any stale connections for this user before registering new one
-        if user_id in self.active_connections:
-            stale = list(self.active_connections[user_id])
+        if user_id not in self.active_connections:
             self.active_connections[user_id] = []
-            for old_ws in stale:
-                try:
-                    await old_ws.close(code=1000)
-                except Exception:
-                    pass
-        self.active_connections[user_id] = [websocket]
-        print(f"🔗 WebSocket connected for user {user_id}")
+        self.active_connections[user_id].append(websocket)
+        print(f"🔗 WebSocket connected for user {user_id} (active: {len(self.active_connections[user_id])})")
 
     def disconnect(self, websocket: WebSocket, user_id: str):
         if user_id in self.active_connections:
@@ -55,11 +48,18 @@ class ConnectionManager:
 
     async def send_to_user(self, user_id: str, message: dict):
         if user_id in self.active_connections:
+            dead_connections = []
             for connection in self.active_connections[user_id]:
                 try:
                     await connection.send_json(message)
                 except Exception as e:
                     print(f"Error sending to user {user_id}: {e}")
+                    dead_connections.append(connection)
+            for dead in dead_connections:
+                if dead in self.active_connections[user_id]:
+                    self.active_connections[user_id].remove(dead)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
 
     async def broadcast_to_users(self, user_ids: List[str], message: dict):
         for user_id in user_ids:
