@@ -1,8 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 
 from pydantic import BaseModel, Field, ConfigDict
+
+TipeKandangType = Literal["Closed House", "Open House"]
 
 
 class LatestSensorSnapshot(BaseModel):
@@ -24,6 +26,10 @@ class KandangBase(BaseModel):
     kode: str = Field(..., min_length=1, max_length=20, description="Kode unik kandang")
     lokasi: Optional[str] = Field(default=None, max_length=255, description="Lokasi")
     kapasitas: Optional[int] = Field(default=None, ge=0, description="Kapasitas kandang")
+    panjang: Optional[float] = Field(default=None, ge=0, description="Panjang kandang dalam meter")
+    lebar: Optional[float] = Field(default=None, ge=0, description="Lebar kandang dalam meter")
+    luas: Optional[float] = Field(default=None, ge=0, description="Luas kandang dalam m²")
+    tipe_kandang: Optional[TipeKandangType] = Field(default="Closed House", description="Tipe kandang: Closed House / Open House")
     deskripsi: Optional[str] = Field(default=None, description="Deskripsi kandang")
 
 
@@ -39,6 +45,10 @@ class KandangUpdate(BaseModel):
     nama: Optional[str] = Field(default=None, min_length=1, max_length=100)
     lokasi: Optional[str] = Field(default=None, max_length=255)
     kapasitas: Optional[int] = Field(default=None, ge=0)
+    panjang: Optional[float] = Field(default=None, ge=0)
+    lebar: Optional[float] = Field(default=None, ge=0)
+    luas: Optional[float] = Field(default=None, ge=0, description="Luas kandang dalam m²")
+    tipe_kandang: Optional[TipeKandangType] = Field(default=None)
     deskripsi: Optional[str] = Field(default=None)
     is_active: Optional[bool] = Field(default=None)
     tanggal_mulai_siklus: Optional[datetime] = Field(default=None, description="Tanggal mulai siklus panen. Set untuk reset hari_ke ke 1.")
@@ -54,6 +64,10 @@ class KandangResponse(BaseModel):
     kode: str
     lokasi: Optional[str] = None
     kapasitas: Optional[int] = None
+    panjang: Optional[float] = None
+    lebar: Optional[float] = None
+    luas: Optional[float] = None
+    tipe_kandang: Optional[str] = "Closed House"
     deskripsi: Optional[str] = None
     is_active: bool
     pemilik_id: uuid.UUID

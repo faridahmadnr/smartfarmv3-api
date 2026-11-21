@@ -106,7 +106,7 @@ async def create_sensor_data_iot(
             'Bobot': today_log.bobot if today_log and today_log.bobot is not None else 0,
             'Populasi': today_populasi if today_populasi is not None else 0,
             'Death': today_deaths,
-            'Luas Kandang': kandang.kapasitas / 10 if kandang.kapasitas else 120,
+            'Luas Kandang': float(kandang.luas) if (kandang.luas and kandang.luas > 0) else (kandang.kapasitas / 10 if kandang.kapasitas else 120),
             'Hour': sensor_data.timestamp.hour,
         }
         cls_result = predict_classification(features)
@@ -447,7 +447,7 @@ async def create_sensor_data(
                 'Minum': data.minum or 0,
                 'Bobot': data.bobot or 0,
                 'Populasi': data.populasi or 0,
-                'Luas Kandang': kandang.kapasitas / 10 if kandang.kapasitas else 120,
+                'Luas Kandang': float(kandang.luas) if (kandang.luas and kandang.luas > 0) else (kandang.kapasitas / 10 if kandang.kapasitas else 120),
                 'Hour': sensor_data.timestamp.hour if sensor_data.timestamp else 12,
             }
             cls_dl_result = predict_classification_dl(features_dl)

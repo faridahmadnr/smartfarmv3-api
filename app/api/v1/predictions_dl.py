@@ -288,6 +288,12 @@ async def classify(
     kandang_uuid = await _resolve_kandang_id(req.kandang_id, db)
 
     if kandang_uuid:
+        kandang_res = await db.execute(select(Kandang).where(Kandang.id == kandang_uuid))
+        kandang_item = kandang_res.scalar_one_or_none()
+        if kandang_item and kandang_item.luas and (req.luas_kandang == 120.0 or not req.luas_kandang):
+            req.luas_kandang = float(kandang_item.luas)
+            features['Luas Kandang'] = req.luas_kandang
+
         cls_needed = CLS_TIME_STEPS + CLS_ROLLING_WINDOW  # 18
         sensors = await _fetch_sensor_history(db, kandang_uuid, limit=cls_needed)
         if sensors:

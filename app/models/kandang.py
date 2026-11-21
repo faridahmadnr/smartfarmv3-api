@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, func, Date
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, func, Date, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -40,6 +40,23 @@ class Kandang(Base):
     )
     kapasitas: Mapped[Optional[int]] = mapped_column(
         nullable=True,
+    )
+    panjang: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    lebar: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    luas: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    tipe_kandang: Mapped[str] = mapped_column(
+        String(50),
+        default="Closed House",
+        nullable=False,
     )
     deskripsi: Mapped[Optional[str]] = mapped_column(
         Text,

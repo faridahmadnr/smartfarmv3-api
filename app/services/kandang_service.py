@@ -73,11 +73,19 @@ class KandangService:
     
     async def create(self, kandang_data: KandangCreate) -> Kandang:
         """Create a new kandang."""
+        luas_val = kandang_data.luas
+        if luas_val is None and kandang_data.panjang is not None and kandang_data.lebar is not None:
+            luas_val = round(kandang_data.panjang * kandang_data.lebar, 2)
+
         kandang = Kandang(
             nama=kandang_data.nama,
             kode=kandang_data.kode,
             lokasi=kandang_data.lokasi,
             kapasitas=kandang_data.kapasitas,
+            panjang=kandang_data.panjang,
+            lebar=kandang_data.lebar,
+            luas=luas_val,
+            tipe_kandang=kandang_data.tipe_kandang or "Closed House",
             deskripsi=kandang_data.deskripsi,
             pemilik_id=kandang_data.pemilik_id,
         )
@@ -94,6 +102,10 @@ class KandangService:
         
         for field, value in update_data.items():
             setattr(kandang, field, value)
+
+        # Auto-recalculate luas jika panjang atau lebar diupdate dan luas tidak di-override manual
+        if "luas" not in update_data and (kandang.panjang is not None and kandang.lebar is not None):
+            kandang.luas = round(kandang.panjang * kandang.lebar, 2)
         
         await self.db.flush()
         await self.db.refresh(kandang)
