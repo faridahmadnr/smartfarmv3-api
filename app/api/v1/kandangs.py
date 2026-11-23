@@ -21,20 +21,14 @@ router = APIRouter()
     "/me",
     response_model=BaseResponse[KandangResponse],
     summary="Get Kandang Default",
-    description="Get detail kandang aktif pertama (kompatibilitas legacy)",
+    description="Get detail kandang aktif pertama sesuai scope role pengguna",
 )
 async def get_my_kandang(
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     kandang_service = KandangService(db)
-    result = await db.execute(
-        select(Kandang)
-        .options(selectinload(Kandang.pemilik))
-        .where(Kandang.is_active == True)
-        .limit(1)
-    )
-    kandang = result.scalar_one_or_none()
+    kandang = await kandang_service.get_my_kandang(current_user)
     if not kandang:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Kandang tidak ditemukan")
 
@@ -162,9 +156,8 @@ async def get_kandang_by_id(
             detail="Kandang tidak ditemukan",
         )
 
-    # Validasi akses jika bukan admin
-    if current_user.role == UserRole.PEMILIK and kandang.pemilik_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak: bukan pemilik kandang ini")
+    # Validasi akses berbasis role
+    kandang_service.ensure_access(kandang, current_user)
 
     response = KandangResponse.model_validate(kandang)
     if kandang.pemilik:
@@ -195,9 +188,8 @@ async def update_kandang(
             detail="Kandang tidak ditemukan",
         )
 
-    # Validasi kepemilikan
-    if current_user.role == UserRole.PEMILIK and kandang.pemilik_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak: bukan pemilik kandang ini")
+    # Validasi kepemilikan / akses
+    kandang_service.ensure_access(kandang, current_user)
 
     updated = await kandang_service.update(kandang, kandang_data)
 
@@ -240,8 +232,8 @@ async def delete_kandang(
             detail="Kandang tidak ditemukan",
         )
 
-    if current_user.role == UserRole.PEMILIK and kandang.pemilik_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak: bukan pemilik kandang ini")
+    # Validasi kepemilikan / akses
+    kandang_service.ensure_access(kandang, current_user)
 
     await kandang_service.deactivate(kandang)
 

@@ -1,6 +1,7 @@
 import uuid
 from typing import Optional, List
 
+from fastapi import HTTPException, status
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -11,11 +12,77 @@ from app.models.user import User, UserRole
 from app.schemas.kandang import KandangCreate, KandangUpdate, LatestSensorSnapshot
 
 
+def check_kandang_access(kandang: Kandang, user: User) -> bool:
+    """
+    Validasi hak akses ke kandang:
+    - ADMIN: selalu boleh mengakses semua kandang.
+    - PEMILIK: hanya boleh mengakses kandang miliknya (kandang.pemilik_id == user.id).
+    - PETERNAK: hanya boleh mengakses kandang milik pemilik yang menaunginya
+      (user.pemilik_id is not None dan kandang.pemilik_id == user.pemilik_id).
+    - Role lain atau peternak tanpa pemilik_id: ditolak (False).
+    """
+    if user.role == UserRole.ADMIN:
+        return True
+    if user.role == UserRole.PEMILIK:
+        return kandang.pemilik_id == user.id
+    if user.role == UserRole.PETERNAK:
+        return user.pemilik_id is not None and kandang.pemilik_id == user.pemilik_id
+    return False
+
+
+def ensure_kandang_access(kandang: Kandang, user: User) -> None:
+    """
+    Raise HTTP 403 Forbidden jika user tidak memiliki hak akses ke kandang.
+    Dapat dipakai ulang di router kandang maupun dependencies (mis. get_single_kandang).
+    """
+    if not check_kandang_access(kandang, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Akses ditolak: Anda tidak memiliki akses ke kandang ini",
+        )
+
+
 class KandangService:
     """Service for kandang (cage/barn) operations."""
     
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    def check_access(self, kandang: Kandang, user: User) -> bool:
+        """Instance helper untuk check_kandang_access."""
+        return check_kandang_access(kandang, user)
+
+    def ensure_access(self, kandang: Kandang, user: User) -> None:
+        """Instance helper untuk ensure_kandang_access."""
+        ensure_kandang_access(kandang, user)
+
+    async def get_my_kandang(self, user: User) -> Optional[Kandang]:
+        """
+        Ambil kandang aktif pertama sesuai scope role user:
+        - ADMIN: kandang aktif pertama secara global.
+        - PEMILIK: kandang aktif pertama milik user.
+        - PETERNAK: kandang aktif pertama milik pemilik yang menaunginya.
+        - Peternak tanpa pemilik_id / lainnya: None.
+        """
+        query = (
+            select(Kandang)
+            .options(joinedload(Kandang.pemilik))
+            .where(Kandang.is_active == True)
+        )
+        if user.role == UserRole.PEMILIK:
+            query = query.where(Kandang.pemilik_id == user.id)
+        elif user.role == UserRole.PETERNAK:
+            if not user.pemilik_id:
+                return None
+            query = query.where(Kandang.pemilik_id == user.pemilik_id)
+        elif user.role == UserRole.ADMIN:
+            pass
+        else:
+            return None
+
+        query = query.order_by(Kandang.created_at.asc()).limit(1)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
     
     async def get_by_id(self, kandang_id: uuid.UUID) -> Optional[Kandang]:
         """Get kandang by ID."""
