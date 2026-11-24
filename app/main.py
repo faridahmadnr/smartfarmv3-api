@@ -64,9 +64,9 @@ app = FastAPI(
 
     ## Roles
 
-    * **Admin** - Full access ke semua fitur termasuk input manual dan reload model ML
-    * **Pemilik** - Manage kandang dan peternak miliknya
-    * **Peternak** - Input log harian dan laporan kematian pada kandang yang dikelola
+    * **Admin** - Full access ke semua fitur: manajemen user global, pembuatan kandang, input manual sensor, dan manajemen model ML
+    * **Pemilik** - Mengelola kandang miliknya sendiri dan mengelola peternak di bawah naungannya (/api/v1/pemilik/peternak)
+    * **Peternak** - Operator lapangan: input log harian dan laporan kematian pada kandang yang dinaungi pemiliknya
     """,
     version="1.0.0",
     docs_url="/docs",
