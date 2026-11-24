@@ -21,7 +21,13 @@ from app.schemas.sensor_data import (
     SensorDataStats,
 )
 from app.services.sensor_data_service import SensorDataService
-from app.api.deps import get_current_user, get_iot_auth, get_single_kandang, require_roles
+from app.api.deps import (
+    get_current_user,
+    get_iot_auth,
+    get_kandang_for_iot,
+    get_single_kandang_for_user,
+    require_roles,
+)
 from app.models.user import UserRole
 
 router = APIRouter()
@@ -37,7 +43,7 @@ router = APIRouter()
 async def create_sensor_data_iot(
     data: SensorDataIoTCreate,
     _: str = Depends(get_iot_auth),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_kandang_for_iot),
     db: AsyncSession = Depends(get_db),
 ):
     from app.ml.model_loader import predict_classification, predict_forecasting
@@ -349,7 +355,7 @@ async def create_sensor_data(
     data: SensorDataCreate,
     request: Request,
     current_user: User = Depends(require_roles(UserRole.ADMIN)),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     from app.ml.model_loader import predict_classification, predict_forecasting
@@ -600,7 +606,7 @@ async def get_sensor_data(
     start_time: Optional[datetime] = Query(default=None),
     end_time: Optional[datetime] = Query(default=None),
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     sensor_service = SensorDataService(db)
@@ -626,7 +632,7 @@ async def get_sensor_data(
 async def get_latest_sensor_data(
     limit: int = Query(default=4, ge=1, le=20),
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     sensor_service = SensorDataService(db)
@@ -644,7 +650,7 @@ async def get_latest_sensor_data(
 async def get_sensor_stats(
     hours: int = Query(default=24, ge=1, le=168),
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     sensor_service = SensorDataService(db)
@@ -665,7 +671,7 @@ async def export_sensor_data_csv(
     start_time: Optional[datetime] = Query(None, description="Filter awal (ISO format)"),
     end_time: Optional[datetime] = Query(None, description="Filter akhir (ISO format)"),
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = SensorDataService(db)

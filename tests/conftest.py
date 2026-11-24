@@ -116,7 +116,7 @@ async def auth_headers(client: AsyncClient, test_user: User) -> dict:
     """Get authorization headers for test user."""
     response = await client.post(
         "/api/v1/auth/login",
-        data={
+        json={
             "username": "testuser",
             "password": "testpassword",
         }
@@ -132,9 +132,44 @@ async def admin_auth_headers(client: AsyncClient, test_admin: User) -> dict:
     """Get authorization headers for admin user."""
     response = await client.post(
         "/api/v1/auth/login",
-        data={
+        json={
             "username": "testadmin",
             "password": "adminpassword",
+        }
+    )
+    if response.status_code == 200:
+        token = response.json()["data"]["access_token"]
+        return {"Authorization": f"Bearer {token}"}
+    return {}
+
+
+@pytest_asyncio.fixture
+async def test_peternak(db_session: AsyncSession, test_user: User) -> User:
+    """Create a test peternak user affiliated with test_user."""
+    peternak = User(
+        id=uuid.uuid4(),
+        email="peternak@example.com",
+        username="testpeternak",
+        full_name="Test Peternak",
+        hashed_password=get_password_hash("peternakpassword"),
+        role=UserRole.PETERNAK,
+        pemilik_id=test_user.id,
+        is_active=True,
+    )
+    db_session.add(peternak)
+    await db_session.commit()
+    await db_session.refresh(peternak)
+    return peternak
+
+
+@pytest_asyncio.fixture
+async def peternak_auth_headers(client: AsyncClient, test_peternak: User) -> dict:
+    """Get authorization headers for peternak user."""
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "username": "testpeternak",
+            "password": "peternakpassword",
         }
     )
     if response.status_code == 200:

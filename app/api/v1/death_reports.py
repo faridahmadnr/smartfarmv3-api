@@ -14,7 +14,7 @@ from app.models.kandang import Kandang
 from app.schemas.base import BaseResponse, success_response
 from app.schemas.death_report import DeathReportCreate, DeathReportResponse, DeathReportListResponse
 from app.services.death_report_service import DeathReportService
-from app.api.deps import get_current_user, get_single_kandang
+from app.api.deps import get_current_user, get_single_kandang_for_user
 
 
 class DeathReportUpdate(BaseModel):
@@ -34,7 +34,7 @@ router = APIRouter()
 async def report_death(
     data: DeathReportCreate,
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DeathReportService(db)
@@ -54,7 +54,7 @@ async def list_death_reports(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DeathReportService(db)
@@ -80,7 +80,7 @@ async def export_death_reports_csv(
     start_time: Optional[datetime] = Query(None, description="Filter awal"),
     end_time: Optional[datetime] = Query(None, description="Filter akhir"),
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DeathReportService(db)
@@ -143,7 +143,7 @@ async def update_death_report(
     report_id: uuid.UUID,
     data: DeathReportUpdate,
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DeathReportService(db)
@@ -160,7 +160,7 @@ async def update_death_report(
 async def delete_death_report(
     report_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DeathReportService(db)
@@ -177,7 +177,7 @@ async def delete_death_report(
 )
 async def get_today_total(
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DeathReportService(db)
