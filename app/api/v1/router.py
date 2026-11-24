@@ -1,10 +1,27 @@
 from fastapi import APIRouter
 
-from app.api.v1 import auth, users, activity_logs, kandangs, predictions, predictions_dl, sensor_data, notifications, death_reports, daily_logs
+from app.api.v1 import (
+    auth,
+    users,
+    activity_logs,
+    kandangs,
+    predictions,
+    predictions_dl,
+    sensor_data,
+    notifications,
+    death_reports,
+    daily_logs,
+    pemilik_peternak,
+)
 
 api_router = APIRouter()
 
 # Include all routers
+api_router.include_router(
+    pemilik_peternak.router,
+    prefix="/pemilik/peternak",
+    tags=["Pemilik - Peternak"],
+)
 api_router.include_router(
     auth.router,
     prefix="/auth",

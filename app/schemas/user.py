@@ -33,6 +33,16 @@ class PeternakCreate(UserBase):
     password: str = Field(..., min_length=8, max_length=100, description="Password")
 
 
+class PeternakUpdate(BaseModel):
+    """Schema for pemilik to update a peternak under their account."""
+    
+    email: Optional[EmailStr] = Field(default=None, description="User email address")
+    username: Optional[str] = Field(default=None, min_length=3, max_length=50)
+    full_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    phone: Optional[str] = Field(default=None, max_length=20)
+    is_active: Optional[bool] = Field(default=None, description="User active status")
+
+
 class UserUpdate(BaseModel):
     """Schema for updating a user."""
     

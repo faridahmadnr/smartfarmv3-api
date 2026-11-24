@@ -90,6 +90,11 @@ def require_admin():
     return require_roles(UserRole.ADMIN)
 
 
+def require_pemilik():
+    """Dependency to require pemilik role exclusively."""
+    return require_roles(UserRole.PEMILIK)
+
+
 def require_pemilik_or_admin():
     """Dependency to require pemilik or admin role."""
     return require_roles(UserRole.ADMIN, UserRole.PEMILIK)
