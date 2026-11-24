@@ -294,3 +294,68 @@ class TestKandangDepsSecurity:
         # Admin akses sensor-data kandang B
         res_sensor = await client.get(f"/api/v1/sensor-data?kandang_id={kandang_b_id}", headers=admin_auth_headers)
         assert res_sensor.status_code == 200
+
+    async def test_put_delete_with_own_kandang_param_but_cross_tenant_resource_id_returns_404(
+        self, client: AsyncClient, setup_two_tenants_with_data: dict
+    ):
+        """
+        User A menyertakan ?kandang_id=<kandang A> (sah miliknya), tetapi log_id / report_id
+        milik kandang B -> query wajib memfilter kandang_id == kandang A sehingga menghasilkan 404 Not Found.
+        """
+        kandang_a_id = str(setup_two_tenants_with_data["kandang_a"].id)
+        kandang_b_id = str(setup_two_tenants_with_data["kandang_b"].id)
+        headers_a = setup_two_tenants_with_data["headers_a"]
+        headers_b = setup_two_tenants_with_data["headers_b"]
+
+        # 1. User B membuat daily-log di kandang B
+        res_b_log = await client.post(
+            f"/api/v1/daily-logs?kandang_id={kandang_b_id}",
+            json={"pakan": 80, "minum": 150, "populasi": 3000},
+            headers=headers_b,
+        )
+        assert res_b_log.status_code == 200
+        log_b_id = res_b_log.json()["data"]["id"]
+
+        # 2. User B membuat death-report di kandang B
+        res_b_death = await client.post(
+            f"/api/v1/death-reports?kandang_id={kandang_b_id}",
+            json={"count": 3, "notes": "Mati di kandang B"},
+            headers=headers_b,
+        )
+        assert res_b_death.status_code == 200
+        death_b_id = res_b_death.json()["data"]["id"]
+
+        # 3. User A mencoba PUT log B dengan ?kandang_id=<kandang A> -> 404 Not Found
+        res_put_log = await client.put(
+            f"/api/v1/daily-logs/{log_b_id}?kandang_id={kandang_a_id}",
+            json={"pakan": 999, "minum": 999, "populasi": 999},
+            headers=headers_a,
+        )
+        assert res_put_log.status_code == 404
+        assert res_put_log.json()["detail"] == "Log tidak ditemukan"
+
+        # 4. User A mencoba DELETE log B dengan ?kandang_id=<kandang A> -> 404 Not Found
+        res_del_log = await client.delete(
+            f"/api/v1/daily-logs/{log_b_id}?kandang_id={kandang_a_id}",
+            headers=headers_a,
+        )
+        assert res_del_log.status_code == 404
+        assert res_del_log.json()["detail"] == "Log tidak ditemukan"
+
+        # 5. User A mencoba PUT death report B dengan ?kandang_id=<kandang A> -> 404 Not Found
+        res_put_death = await client.put(
+            f"/api/v1/death-reports/{death_b_id}?kandang_id={kandang_a_id}",
+            json={"count": 99, "notes": "Hacked"},
+            headers=headers_a,
+        )
+        assert res_put_death.status_code == 404
+        assert res_put_death.json()["detail"] == "Laporan tidak ditemukan"
+
+        # 6. User A mencoba DELETE death report B dengan ?kandang_id=<kandang A> -> 404 Not Found
+        res_del_death = await client.delete(
+            f"/api/v1/death-reports/{death_b_id}?kandang_id={kandang_a_id}",
+            headers=headers_a,
+        )
+        assert res_del_death.status_code == 404
+        assert res_del_death.json()["detail"] == "Laporan tidak ditemukan"
+
