@@ -13,7 +13,7 @@ from app.models.user import User
 from app.schemas.base import BaseResponse, success_response
 from app.services.prediction_service import PredictionService
 from app.models.kandang import Kandang
-from app.api.deps import get_current_user, get_single_kandang
+from app.api.deps import get_current_user, get_single_kandang_for_user
 from app.ml.model_loader import load_models
 
 router = APIRouter()
@@ -108,7 +108,7 @@ async def get_prediction_summary(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     _: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     start = start_date.date() if start_date else None
@@ -133,7 +133,7 @@ async def get_prediction_history(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     _: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     import json

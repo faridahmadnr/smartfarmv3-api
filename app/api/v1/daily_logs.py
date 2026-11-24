@@ -13,7 +13,7 @@ from app.models.kandang import Kandang
 from app.schemas.base import BaseResponse, success_response
 from app.schemas.daily_log import DailyLogCreate, DailyLogResponse, DailyLogListResponse
 from app.services.daily_log_service import DailyLogService
-from app.api.deps import get_current_user, get_single_kandang
+from app.api.deps import get_current_user, get_single_kandang_for_user
 
 router = APIRouter()
 
@@ -27,7 +27,7 @@ router = APIRouter()
 async def create_daily_log(
     data: DailyLogCreate,
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DailyLogService(db)
@@ -47,7 +47,7 @@ async def export_daily_logs_csv(
     start_date: Optional[datetime.date] = Query(None, description="Filter dari tanggal (YYYY-MM-DD)"),
     end_date: Optional[datetime.date] = Query(None, description="Filter hingga tanggal (YYYY-MM-DD)"),
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DailyLogService(db)
@@ -119,7 +119,7 @@ async def update_daily_log(
     log_id: uuid.UUID,
     data: DailyLogCreate,
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DailyLogService(db)
@@ -136,7 +136,7 @@ async def update_daily_log(
 async def delete_daily_log(
     log_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DailyLogService(db)
@@ -153,7 +153,7 @@ async def delete_daily_log(
 )
 async def get_today_log(
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DailyLogService(db)
@@ -177,7 +177,7 @@ async def list_daily_logs(
     start_date: datetime.date = Query(None, description="Filter dari tanggal (YYYY-MM-DD)"),
     end_date: datetime.date = Query(None, description="Filter hingga tanggal (YYYY-MM-DD)"),
     current_user: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     service = DailyLogService(db)

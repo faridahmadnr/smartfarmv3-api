@@ -17,7 +17,7 @@ from app.models.kandang import Kandang
 from app.models.sensor_data import SensorData
 from app.schemas.base import BaseResponse, success_response
 from app.services.prediction_service import PredictionService
-from app.api.deps import get_current_user, get_single_kandang
+from app.api.deps import get_current_user, get_single_kandang_for_user
 from app.ml.model_loader_dl import (
     load_models, predict_classification, predict_forecasting,
     CLS_TIME_STEPS, CLS_ROLLING_WINDOW, FC_TIME_STEPS, FC_ROLLING_WINDOW,
@@ -224,7 +224,7 @@ async def get_prediction_history(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     _: User = Depends(get_current_user),
-    kandang: Kandang = Depends(get_single_kandang),
+    kandang: Kandang = Depends(get_single_kandang_for_user),
     db: AsyncSession = Depends(get_db),
 ):
     import json

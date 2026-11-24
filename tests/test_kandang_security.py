@@ -167,14 +167,14 @@ class TestKandangSecurity:
         )
         assert res_put.status_code == 403
 
-    async def test_peternak_a_can_get_and_put_kandang_a(
+    async def test_peternak_a_can_get_kandang_a_but_cannot_put(
         self, client: AsyncClient, setup_two_tenants: dict
     ):
-        """Peternak A berhasil membaca dan mengupdate kandang milik Pemilik A (200 OK)."""
+        """Peternak A berhasil membaca kandang A (200), tetapi dilarang mengupdate kandang (403 RBAC)."""
         kandang_a_id = setup_two_tenants["kandang_a"].id
         headers = setup_two_tenants["headers_peternak_a"]
 
-        # 1. GET detail kandang A
+        # 1. GET detail kandang A -> Berhasil 200
         res_get = await client.get(
             f"/api/v1/kandangs/{kandang_a_id}",
             headers=headers,
@@ -182,14 +182,22 @@ class TestKandangSecurity:
         assert res_get.status_code == 200
         assert res_get.json()["data"]["id"] == str(kandang_a_id)
 
-        # 2. PUT update kandang A
+        # 2. PUT update kandang A -> 403 Forbidden (peternak dicabut hak PUT kandang)
         res_put = await client.put(
             f"/api/v1/kandangs/{kandang_a_id}",
-            json={"deskripsi": "Diupdate oleh Peternak A yang sah"},
+            json={"deskripsi": "Coba diupdate Peternak A"},
             headers=headers,
         )
-        assert res_put.status_code == 200
-        assert res_put.json()["data"]["deskripsi"] == "Diupdate oleh Peternak A yang sah"
+        assert res_put.status_code == 403
+
+        # 3. Pemilik A mengupdate kandang A -> Berhasil 200
+        res_put_pemilik = await client.put(
+            f"/api/v1/kandangs/{kandang_a_id}",
+            json={"deskripsi": "Diupdate oleh Pemilik A yang sah"},
+            headers=setup_two_tenants["headers_pemilik_a"],
+        )
+        assert res_put_pemilik.status_code == 200
+        assert res_put_pemilik.json()["data"]["deskripsi"] == "Diupdate oleh Pemilik A yang sah"
 
     async def test_pemilik_a_cannot_get_or_put_kandang_b(
         self, client: AsyncClient, setup_two_tenants: dict

@@ -108,11 +108,11 @@ async def get_iot_auth(
     return x_api_key
 
 
-async def get_single_kandang(
+async def get_kandang_for_iot(
     kandang_id: Optional[uuid.UUID] = Query(default=None, description="ID kandang (opsional, jika kosong mengambil kandang aktif pertama)"),
     db: AsyncSession = Depends(get_db),
 ) -> Kandang:
-    """Ambil kandang berdasarkan parameter query ?kandang_id=..., atau fallback ke kandang aktif pertama."""
+    """Khusus perangkat IoT (ESP32): ambil kandang berdasarkan ?kandang_id=..., atau fallback ke kandang aktif pertama."""
     if kandang_id:
         result = await db.execute(
             select(Kandang).where(Kandang.id == kandang_id, Kandang.is_active == True)
@@ -135,6 +135,44 @@ async def get_single_kandang(
             detail="Kandang tidak ditemukan",
         )
     return kandang
+
+
+async def get_single_kandang_for_user(
+    kandang_id: Optional[uuid.UUID] = Query(default=None, description="ID kandang (opsional, jika kosong mengambil kandang milik user)"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Kandang:
+    """
+    Dependency kandang berbasis scope user:
+    - Jika kandang_id diberikan: cari kandang berdasarkan ID, cek akses tenant (403 jika bukan haknya).
+    - Jika kandang_id tidak diberikan: fallback ke kandang aktif pertama milik user (get_my_kandang).
+    - Jika tidak ditemukan / tidak punya kandang: 404 Not Found.
+    """
+    from app.services.kandang_service import KandangService
+
+    kandang_service = KandangService(db)
+
+    if kandang_id:
+        kandang = await kandang_service.get_by_id(kandang_id)
+        if not kandang or not kandang.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Kandang dengan ID '{kandang_id}' tidak ditemukan",
+            )
+        kandang_service.ensure_access(kandang, current_user)
+        return kandang
+
+    kandang = await kandang_service.get_my_kandang(current_user)
+    if not kandang:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Kandang tidak ditemukan",
+        )
+    return kandang
+
+
+# Alias kompatibilitas
+get_single_kandang = get_single_kandang_for_user
 
 
 async def get_request_info(request: Request) -> Dict[str, Any]:

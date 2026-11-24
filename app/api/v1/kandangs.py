@@ -170,13 +170,13 @@ async def get_kandang_by_id(
     "/{kandang_id}",
     response_model=BaseResponse[KandangResponse],
     summary="Update Kandang",
-    description="Update data kandang (Admin, Pemilik, atau Peternak)",
+    description="Update data kandang (Admin atau Pemilik)",
 )
 async def update_kandang(
     kandang_id: uuid.UUID,
     request: Request,
     kandang_data: KandangUpdate,
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PEMILIK, UserRole.PETERNAK)),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.PEMILIK)),
     db: AsyncSession = Depends(get_db),
 ):
     kandang_service = KandangService(db)
